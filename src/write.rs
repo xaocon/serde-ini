@@ -1,22 +1,24 @@
 use super::parse::Item;
-use std::io::{self, Write};
 use std::fmt;
+use std::io::{self, Write};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum LineEnding {
     Linefeed,
     #[default]
     CrLf,
 }
 
-
 impl fmt::Display for LineEnding {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match *self {
-            LineEnding::Linefeed => "\n",
-            LineEnding::CrLf => "\r\n",
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                LineEnding::Linefeed => "\n",
+                LineEnding::CrLf => "\r\n",
+            }
+        )
     }
 }
 
@@ -28,10 +30,7 @@ pub struct Writer<W> {
 
 impl<W> Writer<W> {
     pub fn new(write: W, line_ending: LineEnding) -> Self {
-        Writer {
-            write,
-            line_ending,
-        }
+        Writer { write, line_ending }
     }
 
     pub fn into_inner(self) -> W {
@@ -43,7 +42,9 @@ impl<W: Write> Writer<W> {
     pub fn write(&mut self, item: &Item) -> io::Result<()> {
         match *item {
             Item::Section { ref name } => write!(&mut self.write, "[{}]{}", name, self.line_ending),
-            Item::Value { ref key, ref value } => write!(&mut self.write, "{}={}{}", key, value, self.line_ending),
+            Item::Value { ref key, ref value } => {
+                write!(&mut self.write, "{}={}{}", key, value, self.line_ending)
+            }
             Item::Comment { ref text } => write!(&mut self.write, ";{}{}", text, self.line_ending),
             Item::Empty => write!(&mut self.write, "{}", self.line_ending),
         }

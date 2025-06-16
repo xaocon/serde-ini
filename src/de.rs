@@ -1,15 +1,22 @@
-use std::fmt::{self, Display};
-use std::str::FromStr;
-use std::mem::replace;
-use std::{error, io, num, result, str};
-use serde::de::{self, Error as _, Deserialize, DeserializeOwned, DeserializeSeed, EnumAccess, Visitor, MapAccess, SeqAccess, VariantAccess, IntoDeserializer};
 use super::parse::{self, Item};
+use serde::de::{
+    self, Deserialize, DeserializeOwned, DeserializeSeed, EnumAccess, Error as _, IntoDeserializer,
+    MapAccess, SeqAccess, VariantAccess, Visitor,
+};
+use serde::forward_to_deserialize_any;
+use std::fmt::{self, Display};
+use std::mem::replace;
+use std::str::FromStr;
+use std::{error, io, num, result, str};
 
 pub trait Trait {
     fn next(&mut self) -> Option<result::Result<Item, Error>>;
 }
 
-impl<E, T: Iterator<Item=result::Result<Item, E>>> Trait for T where Error: From<E> {
+impl<E, T: Iterator<Item = result::Result<Item, E>>> Trait for T
+where
+    Error: From<E>,
+{
     fn next(&mut self) -> Option<result::Result<Item, Error>> {
         Iterator::next(self).map(|v| v.map_err(Into::into))
     }
@@ -137,7 +144,7 @@ impl<T: Trait> Deserializer<T> {
                 } else {
                     unreachable!()
                 }
-            },
+            }
             &mut Next::Eof => Ok(None),
             &mut Next::Init => unreachable!(),
         }
@@ -372,9 +379,33 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        match (self.0).peek_kind()? {
-            Some(PeekKind::Value) => self.deserialize_str(visitor),
-            None | Some(PeekKind::Section) => Err(Error::InvalidState),
+        let s = (self.0).next_value()?; // Get the string value
+        dbg!(&s);
+
+        // This is a more self-describing `deserialize_any`.
+        // It tries to parse into a numeric type first, if it fits,
+        // otherwise it defaults to string.
+        // This gives Serde's visitor more chances to match.
+
+        // Try parsing as integer
+        if let Ok(val) = s.parse::<i64>() {
+            // Use i64 for broadest integer type
+            visitor.visit_i64(val)
+        }
+        // Try parsing as float
+        else if let Ok(val) = s.parse::<f64>() {
+            // Use f64 for broadest float type
+            visitor.visit_f64(val)
+        }
+        // Try parsing as boolean
+        else if s.eq_ignore_ascii_case("true") {
+            visitor.visit_bool(true)
+        } else if s.eq_ignore_ascii_case("false") {
+            visitor.visit_bool(false)
+        }
+        // Fallback to string if no other primitive type matches
+        else {
+            visitor.visit_string(s)
         }
     }
 
@@ -407,7 +438,10 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
     }
 
     fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_u32(FromStr::from_str(&(self.0).next_value()?)?)
+        let s = (self.0).next_value()?;
+        dbg!(&s); // This should be "256"
+        let num = FromStr::from_str(&s)?; // This should successfully parse to 256u32
+        visitor.visit_u32(num) // This is the line that causes the error
     }
 
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -439,7 +473,10 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
     }
 
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
-        visitor.visit_str(&(self.0).next_value()?)
+        let s = (self.0).next_value()?;
+        dbg!(&s);
+        visitor.visit_str(&s)
+        // visitor.visit_str(&(self.0).next_value()?)
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -463,11 +500,19 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
     }
 
     // Unit struct means a named value containing no data.
-    fn deserialize_unit_struct<V: Visitor<'de>>(self, _name: &'static str, visitor: V) -> Result<V::Value> {
+    fn deserialize_unit_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V: Visitor<'de>>(self, _name: &'static str, visitor: V) -> Result<V::Value> {
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
         visitor.visit_newtype_struct(self)
     }
 
@@ -479,7 +524,12 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
         self.deserialize_any(visitor)
     }
 
-    fn deserialize_tuple_struct<V: Visitor<'de>>(self, _name: &'static str, _len: usize, visitor: V) -> Result<V::Value> {
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
         self.deserialize_any(visitor)
     }
 
@@ -487,11 +537,21 @@ impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut ValueDeserializer<'a, 
         self.deserialize_any(visitor)
     }
 
-    fn deserialize_struct<V: Visitor<'de>>(self, _name: &'static str, _fields: &'static [&'static str], visitor: V) -> Result<V::Value> {
+    fn deserialize_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
         self.deserialize_map(visitor)
     }
 
-    fn deserialize_enum<V: Visitor<'de>>(self, _name: &'static str, _variants: &'static [&'static str], visitor: V) -> Result<V::Value> {
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
         match (self.0).peek_kind()? {
             Some(PeekKind::Value) => visitor.visit_enum((self.0).next_value()?.into_deserializer()),
             None | Some(PeekKind::Section) => Err(Error::InvalidState),
