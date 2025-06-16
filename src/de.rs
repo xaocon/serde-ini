@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::mem::replace;
 use std::{error, io, num, result, str};
 use serde::de::{self, Error as _, Deserialize, DeserializeOwned, DeserializeSeed, EnumAccess, Visitor, MapAccess, SeqAccess, VariantAccess, IntoDeserializer};
-use parse::{self, Item};
+use super::parse::{self, Item};
 
 pub trait Trait {
     fn next(&mut self) -> Option<result::Result<Item, Error>>;
@@ -96,7 +96,7 @@ pub struct Deserializer<T> {
 impl<T> Deserializer<T> {
     pub fn new(input: T) -> Self {
         Deserializer {
-            input: input,
+            input,
             next: Next::Init,
         }
     }
@@ -196,7 +196,7 @@ impl<T: Trait> Deserializer<T> {
     }
 }
 
-impl<'de, 'a, T: Trait> de::Deserializer<'de> for &'a mut Deserializer<T> {
+impl<'de, T: Trait> de::Deserializer<'de> for &mut Deserializer<T> {
     type Error = Error;
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -654,7 +654,7 @@ impl<'de, 'a, T: Trait + 'a> MapAccess<'de> for MapAccessTop<'a, T> {
 
 /// Deserialize an instance of type `T` from a string of INI text.
 pub fn from_str<T: DeserializeOwned>(s: &str) -> Result<T> {
-    let mut de = Deserializer::new(parse::Parser::from_str(s.as_ref()));
+    let mut de = Deserializer::new(parse::Parser::from_str(s));
     let value = Deserialize::deserialize(&mut de)?;
 
     de.assert_eof()?;

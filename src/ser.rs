@@ -1,8 +1,8 @@
 use std::io::{self, Write};
 use std::{result, fmt};
 use serde::ser::{self, Serialize, Impossible};
-use write::Writer;
-use parse::Item;
+use super::write::Writer;
+use super::parse::Item;
 
 #[derive(Copy, Clone, Debug)]
 pub enum UnsupportedType {
@@ -87,7 +87,7 @@ pub struct Serializer<W> {
 impl<W> Serializer<W> {
     pub fn new(writer: Writer<W>) -> Self {
         Serializer {
-            writer: writer,
+            writer,
         }
     }
 }
@@ -265,7 +265,7 @@ struct KeySerializer {
     key: String,
 }
 
-impl<'a> ser::Serializer for &'a mut KeySerializer {
+impl ser::Serializer for &mut KeySerializer {
     type Ok = ();
     type Error = Error;
 
@@ -326,7 +326,8 @@ impl<'a> ser::Serializer for &'a mut KeySerializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        Ok(self.key = v.into())
+        self.key = v.into();
+        Ok(())
     }
 
     fn serialize_bytes(self, _v: &[u8]) -> Result<()> {
@@ -535,11 +536,11 @@ impl<'a, W: Write> ser::SerializeMap for MapSerializer<'a, W> {
         let writer = &mut self.writer;
         let allow_values = &mut self.allow_values;
         let top_level = self.top_level;
-        self.key.as_ref().ok_or_else(|| Error::MapKeyMissing).and_then(move |key| value.serialize(ValueSerializer {
-            writer: writer,
-            key: key,
-            top_level: top_level,
-            allow_values: allow_values,
+        self.key.as_ref().ok_or(Error::MapKeyMissing).and_then(move |key| value.serialize(ValueSerializer {
+            writer,
+            key,
+            top_level,
+            allow_values,
         }))
     }
 
@@ -554,8 +555,8 @@ impl<'a, W: Write> ser::SerializeStruct for MapSerializer<'a, W> {
 
     fn serialize_field<T: ?Sized + Serialize>(&mut self, key: &'static str, value: &T) -> Result<()> {
         value.serialize(ValueSerializer {
-            writer: &mut self.writer,
-            key: key,
+            writer: self.writer,
+            key,
             top_level: self.top_level,
             allow_values: &mut self.allow_values,
         })

@@ -63,7 +63,7 @@ impl<E: error::Error> error::Error for Error<E> {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::Inner(ref e) => Some(e),
             _ => None,
@@ -78,7 +78,7 @@ pub struct Parser<T> {
 impl<T> Parser<T> {
     pub fn new(input: T) -> Self {
         Parser {
-            input: input,
+            input,
         }
     }
 

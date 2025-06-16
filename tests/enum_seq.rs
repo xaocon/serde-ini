@@ -3,8 +3,6 @@ extern crate serde_derive;
 extern crate serde;
 extern crate serde_ini;
 
-use serde::Deserialize;
-use serde_ini::{Deserializer, Parser};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Debug)]
 enum TestModel {
@@ -13,7 +11,7 @@ enum TestModel {
     }
 }
 
-const TEST_INPUT: &'static str = "
+const TEST_INPUT: &str = "
 [Person]
 name=Ana
 

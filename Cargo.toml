@@ -2,6 +2,7 @@
 name = "serde_ini"
 version = "0.2.0"
 authors = ["arcnmx"]
+edition = "2024"
 
 description = "Windows INI file {de,}serialization"
 keywords = ["ini", "cfg", "serde"]
@@ -12,9 +13,9 @@ readme = "README.md"
 license = "MIT"
 
 [dependencies]
-serde = "^1.0.0"
-result = "^1.0.0"
-void = "^1.0.2"
+serde = "1"
+result = "1"
+void = "1"
 
 [dev-dependencies]
-serde_derive = "^1.0.0"
+serde_derive = "1"

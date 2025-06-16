@@ -1,18 +1,15 @@
-use parse::Item;
+use super::parse::Item;
 use std::io::{self, Write};
 use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default)]
 pub enum LineEnding {
     Linefeed,
+    #[default]
     CrLf,
 }
 
-impl Default for LineEnding {
-    fn default() -> Self {
-        LineEnding::CrLf
-    }
-}
 
 impl fmt::Display for LineEnding {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -32,8 +29,8 @@ pub struct Writer<W> {
 impl<W> Writer<W> {
     pub fn new(write: W, line_ending: LineEnding) -> Self {
         Writer {
-            write: write,
-            line_ending: line_ending,
+            write,
+            line_ending,
         }
     }
 

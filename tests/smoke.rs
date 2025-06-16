@@ -3,6 +3,7 @@ extern crate serde_derive;
 extern crate serde;
 extern crate serde_ini;
 
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde_ini::{Deserializer, Parser};
 
@@ -17,7 +18,13 @@ struct TestModel {
     map2: Option<Box<TestModel>>,
 }
 
-const TEST_INPUT: &'static str = "
+#[derive(Deserialize, Serialize, Clone, PartialEq, Default, Debug)]
+struct TestModelHashMap {
+    #[serde(flatten)]
+    internal: HashMap<String, TestModel>,
+}
+
+const TEST_INPUT: &str = "
 ; Ignored comment
 key1=value1
 key2=255
@@ -29,6 +36,18 @@ key1=value2
 key3=
 
 # We also treat hash as a comment character.
+[map2]
+key1=value3
+key2=257
+key3=
+";
+
+const TEST_INPUT_HASHMAP: &str = "
+[map1]
+key2=256
+key1=value2
+key3=
+
 [map2]
 key1=value3
 key2=257
@@ -53,6 +72,22 @@ fn expected() -> TestModel {
     }
 }
 
+fn expected_hashmap() -> TestModelHashMap {
+    let internal = HashMap::from([
+        ("map1".into(), TestModel {
+            key1: "value2".into(),
+            key2: 256,
+            .. Default::default()
+        }),
+        ("map2".into(), TestModel {
+            key1: "value3".into(),
+            key2: 257,
+            .. Default::default()
+        }),
+    ]);
+    TestModelHashMap { internal }
+}
+
 #[test]
 fn smoke_de() {
 
@@ -73,6 +108,25 @@ fn smoke_de() {
 }
 
 #[test]
+fn smoke_hash() {
+
+    // Parser
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::new(Parser::from_bufread(TEST_INPUT_HASHMAP.as_bytes()))).unwrap());
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::new(Parser::from_read(TEST_INPUT_HASHMAP.as_bytes()))).unwrap());
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::new(Parser::from_str(TEST_INPUT_HASHMAP))).unwrap());
+
+    // Deserializer
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::from_bufread(TEST_INPUT_HASHMAP.as_bytes())).unwrap());
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::from_read(TEST_INPUT_HASHMAP.as_bytes())).unwrap());
+    assert_eq!(expected_hashmap(), TestModelHashMap::deserialize(&mut Deserializer::from_str(TEST_INPUT_HASHMAP)).unwrap());
+
+    // Static methods
+    assert_eq!(expected_hashmap(), serde_ini::from_bufread::<_, TestModelHashMap>(TEST_INPUT_HASHMAP.as_bytes()).unwrap());
+    assert_eq!(expected_hashmap(), serde_ini::from_read::<_, TestModelHashMap>(TEST_INPUT_HASHMAP.as_bytes()).unwrap());
+    assert_eq!(expected_hashmap(), serde_ini::from_str::<TestModelHashMap>(TEST_INPUT_HASHMAP).unwrap());
+}
+
+#[test]
 fn smoke_en() {
     let model = expected();
 
@@ -80,3 +134,12 @@ fn smoke_en() {
 
     assert_eq!(model, serde_ini::from_read::<_, TestModel>(&data[..]).unwrap());
 }
+
+// #[test]
+// fn smoke_hash() {
+//     let model = expected_hashmap();
+
+//     let data = serde_ini::to_vec(&model).unwrap();
+
+//     assert_eq!(model, serde_ini::from_read::<_, TestModel>(&data[..]).unwrap());
+// }
