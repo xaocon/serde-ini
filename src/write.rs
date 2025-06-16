@@ -2,11 +2,19 @@ use super::parse::Item;
 use std::fmt;
 use std::io::{self, Write};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LineEnding {
     Linefeed,
-    #[default]
     CrLf,
+}
+
+impl Default for LineEnding {
+    fn default() -> Self {
+        #[cfg(target_family = "windows")]
+        return LineEnding::CrLf;
+        #[cfg(not(target_family = "windows"))]
+        return LineEnding::Linefeed;
+    }
 }
 
 impl fmt::Display for LineEnding {

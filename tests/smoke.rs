@@ -213,11 +213,11 @@ fn smoke_en() {
     );
 }
 
-// #[test]
-// fn smoke_hash() {
-//     let model = expected_hashmap();
+#[test]
+fn smoke_hash_en() {
+    let model = expected_hashmap();
 
-//     let data = serde_ini::to_vec(&model).unwrap();
+    let data = serde_ini::to_vec(&model).unwrap();
 
-//     assert_eq!(model, serde_ini::from_read::<_, TestModel>(&data[..]).unwrap());
-// }
+    assert_eq!(model, serde_ini::from_read::<_, TestModelHashMap>(&data[..]).unwrap());
+}

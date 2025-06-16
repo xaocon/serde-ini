@@ -49,13 +49,6 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 }
 
 impl<E: error::Error> error::Error for Error<E> {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Inner(ref e) => e.description(),
-            Error::Syntax(..) => "INI syntax error",
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             Error::Inner(ref e) => Some(e),
